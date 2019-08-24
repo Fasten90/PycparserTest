@@ -6,11 +6,20 @@ preprocess_file
 parse_file
 """
 
-test_file_path = r"test\test.c"
+#test_file_path = r"test\test.c"
+test_file_path = r"../../AtollicWorkspace/FastenHomeAut/Src/Common/Helper/StringHelper.c"
+
 preprocessor_path = r"gcc"
 #preprocessor_args = "-E"
 # now, pycparser git repository has been downloaded into this directory (pycparser dir)
 preprocessor_args = ["-E", r"-Ipycparser/utils/fake_libc_include"]
+# Added because FastenHome
+preprocessor_args.append("-I../../AtollicWorkspace/FastenHomeAut/Inc/Common")
+preprocessor_args.append("-I../../AtollicWorkspace/FastenHomeAut/Inc/Common/Helper")
+preprocessor_args.append("-I../../AtollicWorkspace/FastenHomeAut/Inc")
+preprocessor_args.append("-I../../AtollicWorkspace/FastenHomeAut/Drivers/x86/Inc")
+preprocessor_args.append("-DCONFIG_PLATFORM_X86")
+preprocessor_args.append("-DCONFIG_USE_PANEL_PC")
 # Could be use [] (list)
 
 preprocessed_file_path = r"test\test_preprocessed.c"
@@ -41,6 +50,10 @@ print("##########################")
 parse_result.show()
 
 
+func_declarations = set()
+func_calls = set()
+
+
 # Note: be careful, this was child of a pycparser class
 class FuncCallVisitor(pycparser.c_ast.NodeVisitor):
 
@@ -52,6 +65,11 @@ class FuncCallVisitor(pycparser.c_ast.NodeVisitor):
         # This was called by pycparser NodeVisitor automatically
         if node.name.name == "my_test_func" or node.name.name == "printf":
             print("Called '{}' at '{}'".format(node.name.name, node.name.coord))
+        else:
+            print("Called another, unknown function: '{}' from '{}'".format(node.name.name, node.name.coord))
+
+        global func_calls
+        func_calls.add(node.name.name)
         # Visit args in case they contain more func calls.
         if node.args:
             print("Called an another function from: '{}'".format(node.name.name))
@@ -64,11 +82,34 @@ class FuncDefVisitor(pycparser.c_ast.NodeVisitor):
         # This was called by pycparser NodeVisitor automatically
         print("'{}' at '{}' %".format(node.decl.name, node.decl.coord))
 
+        global func_declarations
+        func_declarations.add(node.decl.name)
+
 
 checker_obj = FuncCallVisitor()
 checker_obj.visit(parse_result)
 checker_obj = FuncDefVisitor()
 checker_obj.visit(parse_result)
+
+
+# Listing
+func_calls_str = "".join(item + "\n" for item in func_calls)
+func_def_str = "".join(item + "\n" for item in func_declarations)
+
+print("######################")
+print("Func definitions:")
+print(func_def_str)
+
+print("######################")
+print("Func calls:")
+print(func_calls_str)
+
+# Not used functions:
+print("######################")
+print("Not used functions:")
+func_not_used = func_declarations - func_calls
+func_not_used_str = "".join(item + "\n" for item in func_not_used)
+print(func_not_used_str)
 
 
 # Save the AST to file
