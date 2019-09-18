@@ -7,12 +7,15 @@ parse_file
 """
 
 #test_file_path = r"test\test.c"
-test_file_path = r"../../AtollicWorkspace/FastenHomeAut/Src/Common/Helper/StringHelper.c"
+#test_file_path = r"../../AtollicWorkspace/FastenHomeAut/Src/Common/Helper/StringHelper.c"
+test_file_path = r"../../AtollicWorkspace/FastenHomeAut/Src/Common/Helper/MathHelper.c"
 
 preprocessor_path = r"gcc"
 #preprocessor_args = "-E"
 # now, pycparser git repository has been downloaded into this directory (pycparser dir)
 preprocessor_args = ["-E", r"-Ipycparser/utils/fake_libc_include"]
+
+# TODO: Add them to list
 # Added because FastenHome
 preprocessor_args.append("-I../../AtollicWorkspace/FastenHomeAut/Inc/Common")
 preprocessor_args.append("-I../../AtollicWorkspace/FastenHomeAut/Inc/Common/Helper")
@@ -45,14 +48,15 @@ print("##########################")
 for ast_item in parse_result:
     print(str(ast_item))
 
-print("##########################")
-
-parse_result.show()
+# TODO: Print AST
+#print("##########################")
+#parse_result.show()
 
 
 func_declarations = set()
 func_calls = set()
-
+goto_used = set()
+func_calls_all = []
 
 # Note: be careful, this was child of a pycparser class
 class FuncCallVisitor(pycparser.c_ast.NodeVisitor):
@@ -63,32 +67,52 @@ class FuncCallVisitor(pycparser.c_ast.NodeVisitor):
     # Note: https://github.com/eliben/pycparser/blob/master/examples/func_calls.py
     def visit_FuncCall(self, node):
         # This was called by pycparser NodeVisitor automatically
+        # TODO: Dont care which function
         if node.name.name == "my_test_func" or node.name.name == "printf":
             print("Called '{}' at '{}'".format(node.name.name, node.name.coord))
         else:
-            print("Called another, unknown function: '{}' from '{}'".format(node.name.name, node.name.coord))
+            print("Called '{}' function from '{}'".format(node.name.name, node.name.coord))
 
         global func_calls
+        global func_calls_all
         func_calls.add(node.name.name)
+        func_calls_all.append((node.name.name, node.name.coord))
         # Visit args in case they contain more func calls.
         if node.args:
             print("Called an another function from: '{}'".format(node.name.name))
             self.visit(node.args)  # Recursion
+            # TODO: Perhaps we
 
 
 class FuncDefVisitor(pycparser.c_ast.NodeVisitor):
     # Note: https://github.com/eliben/pycparser/blob/master/examples/func_defs.py
     def visit_FuncDef(self, node):
         # This was called by pycparser NodeVisitor automatically
-        print("'{}' at '{}' %".format(node.decl.name, node.decl.coord))
+        print("Function declaration: '{}' at '{}'".format(node.decl.name, node.decl.coord))
 
         global func_declarations
         func_declarations.add(node.decl.name)
 
 
+# Goto checker
+class GotoVisitor(pycparser.c_ast.NodeVisitor):
+    # Note: https://github.com/eliben/pycparser/blob/master/examples/func_defs.py
+    def visit_Goto(self, node):
+        # This was called by pycparser NodeVisitor automatically
+        print("Goto used '{}' at '{}'".format(node.name, node.coord))
+
+        global goto_used
+        goto_used.add(node.name)
+
+
 checker_obj = FuncCallVisitor()
 checker_obj.visit(parse_result)
+
 checker_obj = FuncDefVisitor()
+checker_obj.visit(parse_result)
+
+# Goto
+checker_obj = GotoVisitor()
 checker_obj.visit(parse_result)
 
 
@@ -97,11 +121,11 @@ func_calls_str = "".join(item + "\n" for item in func_calls)
 func_def_str = "".join(item + "\n" for item in func_declarations)
 
 print("######################")
-print("Func definitions:")
+print("Func definitions: (Declared functions)")
 print(func_def_str)
 
 print("######################")
-print("Func calls:")
+print("Func calls: (Called functions)")
 print(func_calls_str)
 
 # Not used functions:
@@ -110,6 +134,35 @@ print("Not used functions:")
 func_not_used = func_declarations - func_calls
 func_not_used_str = "".join(item + "\n" for item in func_not_used)
 print(func_not_used_str)
+
+goto_used_str = "".join(item + "\n" for item in goto_used)
+print("######################")
+print("Goto used:")
+print(goto_used_str)
+
+
+# Try collect, an function where was called
+func_call_all_list = {}
+for an_func_call in func_calls_all:
+    # Check keyword
+    an_func_call[0]
+    if an_func_call[0] in func_call_all_list:
+        # If is in, add this called function
+        func_call_all_list[an_func_call[0]].append(an_func_call[1])
+    else:
+        # Not in, new
+        func_call_all_list[an_func_call[0]] = [an_func_call[1]]
+
+print("######################")
+print("Calls")
+# ugly format
+#print(func_call_all_list)
+#for item in func_call_all_list.items():
+for key, value in func_call_all_list.items():
+    print("'{}' called from:\n"
+          "{}".format(
+                key,
+                "".join(["  " + item.file + ":" + str(item.line) + "\n" for item in value])))
 
 
 # Save the AST to file
