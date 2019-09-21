@@ -130,9 +130,15 @@ class FileStaticAnalysis():
             elif checker["type"] == StaticAnalysisType.OPTIONAL:
                 if checker["config"]:
                     # Enabled, run
+                    print("######################")
                     print("This checker is enabled, execute: {}".format(checker["name"]))
+                    print("######################")
+                    print("")
                     checker["checker"]()
+                    print("")
                     print("This checker has finished: {}".format(checker["name"]))
+                    print("-----------------------")
+                    print("")
                 else:
                     # Disabled
                     print("This checker has been disabled: {}".format(checker["name"]))
@@ -146,7 +152,6 @@ class FileStaticAnalysis():
         # Listing
         func_calls_str = "".join(item + "\n" for item in func_calls)
 
-        print("######################")
         print("Func calls: (Called functions)")
         print(func_calls_str)
 
@@ -156,12 +161,43 @@ class FileStaticAnalysis():
         checker_obj.visit(self.__parse_result)
 
         # Listing
-        func_calls_str = "".join(item + "\n" for item in func_calls)
         func_def_str = "".join(item + "\n" for item in func_declarations)
 
-        print("######################")
         print("Func definitions: (Declared functions)")
         print(func_def_str)
+
+    def UnusedFunctions(self):
+        # Not used functions:
+        print("######################")
+        print("Not used functions:")
+        func_not_used = func_declarations - func_calls
+        func_not_used_str = "".join(item + "\n" for item in func_not_used)
+        print(func_not_used_str)
+
+
+    def CallList(self):
+        # Try collect, an function where was called
+        func_call_all_list = {}
+        for an_func_call in func_calls_all:
+            # Check keyword
+            called_function = an_func_call[0]
+            caller_function = an_func_call[1]
+            if an_func_call[0] in func_call_all_list:
+                # If is in, add this called function
+                func_call_all_list[called_function].append(caller_function)
+            else:
+                # Not in, new
+                func_call_all_list[called_function] = [caller_function]
+
+        print("Calls")
+        # ugly format
+        # print(func_call_all_list)
+        # for item in func_call_all_list.items():
+        for key, value in func_call_all_list.items():
+            print("'{}' called from:\n"
+                  "{}".format(
+                key,
+                "".join(["  " + item.file + ":" + str(item.line) + "\n" for item in value])))
 
 
     def Goto(self):
@@ -170,7 +206,7 @@ class FileStaticAnalysis():
         checker_obj.visit(self.__parse_result)
 
         goto_used_str = "".join(item + "\n" for item in goto_used)
-        print("######################")
+
         print("Goto used:")
         print(goto_used_str)
 
@@ -203,41 +239,6 @@ class FileStaticAnalysis():
                     #    return_count += 1
                     return_count += find_return_in_recursive(body_item)
                 print("Function: '{}' has {} return".format(function_name, return_count))
-
-
-    def UnusedFunctions(self):
-        # Not used functions:
-        print("######################")
-        print("Not used functions:")
-        func_not_used = func_declarations - func_calls
-        func_not_used_str = "".join(item + "\n" for item in func_not_used)
-        print(func_not_used_str)
-
-
-    def CallList(self):
-        # Try collect, an function where was called
-        func_call_all_list = {}
-        for an_func_call in func_calls_all:
-            # Check keyword
-            called_function = an_func_call[0]
-            caller_function = an_func_call[1]
-            if an_func_call[0] in func_call_all_list:
-                # If is in, add this called function
-                func_call_all_list[called_function].append(caller_function)
-            else:
-                # Not in, new
-                func_call_all_list[called_function] = [caller_function]
-
-        print("######################")
-        print("Calls")
-        # ugly format
-        # print(func_call_all_list)
-        # for item in func_call_all_list.items():
-        for key, value in func_call_all_list.items():
-            print("'{}' called from:\n"
-                  "{}".format(
-                key,
-                "".join(["  " + item.file + ":" + str(item.line) + "\n" for item in value])))
 
 
 # Note: be careful, this was child of a pycparser class
