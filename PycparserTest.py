@@ -133,8 +133,8 @@ checker_obj.visit(parse_result)
 
 # Return
 # TODO: Cannot check easily, which function' return
-checker_obj = ReturnVisitor()
-checker_obj.visit(parse_result)
+#checker_obj = ReturnVisitor()
+#checker_obj.visit(parse_result)
 
 
 def find_return_in_recursive(item_list):
@@ -145,24 +145,18 @@ def find_return_in_recursive(item_list):
         return_count += find_return_in_recursive(item)
     return return_count
 
-
-
-# Explore AST
+# Explore AST - for return
 for ast_item in parse_result:
     #print(str(ast_item))
-    #if isinstance(ast_item, list):  # pycparser.c_ast.FuncDecl
-    #if ast_item.storage[0] != "typedef":
-    #if isinstance(ast_item.type, pycparser.c_ast.FuncDecl):
-    #if isinstance(ast_item.type, pycparser.c_ast.FuncDef):
     if isinstance(ast_item, pycparser.c_ast.FuncDef):
-        # Explorer the body
+        # Explore the body
         function_name = ast_item.decl.name
         return_count = 0
         for body_item in ast_item.body:
             #print(str(body_item))
             #if isinstance(body_item, pycparser.c_ast.Return):
             #    return_count += 1
-            return_count = find_return_in_recursive(body_item)
+            return_count += find_return_in_recursive(body_item)
         print("Function: '{}' has {} return".format(function_name, return_count))
 
 
@@ -195,13 +189,14 @@ print(goto_used_str)
 func_call_all_list = {}
 for an_func_call in func_calls_all:
     # Check keyword
-    an_func_call[0]
+    called_function = an_func_call[0]
+    caller_function = an_func_call[1]
     if an_func_call[0] in func_call_all_list:
         # If is in, add this called function
-        func_call_all_list[an_func_call[0]].append(an_func_call[1])
+        func_call_all_list[called_function].append(caller_function)
     else:
         # Not in, new
-        func_call_all_list[an_func_call[0]] = [an_func_call[1]]
+        func_call_all_list[called_function] = [caller_function]
 
 print("######################")
 print("Calls")
