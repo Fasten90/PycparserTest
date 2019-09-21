@@ -16,6 +16,7 @@ preprocessor_path = r"gcc"
 preprocessor_args = ["-E", r"-Ipycparser/utils/fake_libc_include"]
 
 # TODO: Add them to list
+# TODO: Read from file
 # Added because FastenHome
 preprocessor_args.append("-I../../AtollicWorkspace/FastenHomeAut/Inc/Common")
 preprocessor_args.append("-I../../AtollicWorkspace/FastenHomeAut/Inc/Common/Helper")
@@ -43,10 +44,15 @@ parse_result = pycparser.parse_file(preprocessed_file_path)
 parse_result_str = str(parse_result)
 print(parse_result_str)
 
-print("##########################")
+# Save the AST to file
+with open(pycparser_ast_generated, "w") as f:
+    f.write(parse_result_str)
 
-for ast_item in parse_result:
-    print(str(ast_item))
+
+# Print AST
+#print("##########################")
+#for ast_item in parse_result:
+#    print(str(ast_item))
 
 # TODO: Print AST
 #print("##########################")
@@ -82,7 +88,6 @@ class FuncCallVisitor(pycparser.c_ast.NodeVisitor):
         if node.args:
             print("Called an another function from: '{}'".format(node.name.name))
             self.visit(node.args)  # Recursion
-            # TODO: Perhaps we
 
 
 class FuncDefVisitor(pycparser.c_ast.NodeVisitor):
@@ -208,10 +213,4 @@ for key, value in func_call_all_list.items():
           "{}".format(
                 key,
                 "".join(["  " + item.file + ":" + str(item.line) + "\n" for item in value])))
-
-
-# Save the AST to file
-with open(pycparser_ast_generated, "w") as f:
-    f.write(parse_result_str)
-
 
