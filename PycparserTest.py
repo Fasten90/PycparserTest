@@ -1,4 +1,6 @@
 
+from enum import Enum
+
 import pycparser
 
 """
@@ -11,6 +13,23 @@ func_calls = set()
 goto_used = set()
 return_used = set()
 func_calls_all = []
+
+class FileStaticAnalysisConfig():
+
+    def __init__(self):
+
+        self.CONFIG_LIST_UNUSED_FUNCTIONS = True
+
+        self.CONFIG_LIST_CALL_LIST = True
+
+        self.CONFIG_ANALYSE_GOTO = True
+
+        self.CONFIG_ANALYSE_RETURN = True
+
+
+class StaticAnalysisType(Enum):
+        DEFAULT = 1
+        OPTIONAL = 2
 
 
 class FileStaticAnalysis():
@@ -25,20 +44,70 @@ class FileStaticAnalysis():
         self.__preprocessed_file_path = preprocessed_file_path
         self.__pycparser_ast_generated = pycparser_ast_generated
 
-    def run(self):
-        preprocessed_file_content = pycparser.preprocess_file(test_file_path, cpp_path=preprocessor_path, cpp_args=preprocessor_args)
 
-        with open(preprocessed_file_path, "w") as f:
+        self.__parse_result = None
+
+        self.__config = FileStaticAnalysisConfig()
+        self.__analysis_list = [
+            {
+                "name": "FuncDef",
+                "type": StaticAnalysisType.DEFAULT,
+                "config": None,
+                "checker": self.FuncDef
+            },
+            {
+                "name": "FuncCall",
+                "type": StaticAnalysisType.DEFAULT,
+                "config": None,
+                "checker": self.FuncCall
+            },
+            {
+                "name": "Unused functions",
+                "type": StaticAnalysisType.OPTIONAL,
+                "config": self.__config.CONFIG_LIST_UNUSED_FUNCTIONS,
+                "checker": self.UnusedFunctions
+            },
+            {
+                "name": "Call list",
+                "type": StaticAnalysisType.OPTIONAL,
+                "config": self.__config.CONFIG_LIST_CALL_LIST,
+                "checker": self.CallList
+            },
+            {
+                "name": "Goto",
+                "type": StaticAnalysisType.OPTIONAL,
+                "config": self.__config.CONFIG_ANALYSE_GOTO,
+                "checker": self.Goto
+            },
+            {
+                "name": "Return",
+                "type": StaticAnalysisType.OPTIONAL,
+                "config": self.__config.CONFIG_ANALYSE_RETURN,
+                "checker": self.Return
+            }
+        ]
+
+    def run(self):
+
+        # Preprocess
+        preprocessed_file_content = pycparser.preprocess_file(
+            self.__input_file_path,
+            cpp_path=self.__preprocessor_path,
+            cpp_args=self.__preprocessor_args)
+
+        with open(self.__preprocessed_file_path, "w") as f:
             f.write(preprocessed_file_content)
 
+        # Parse
+
         # This only want preprocessed file!
-        parse_result = pycparser.parse_file(preprocessed_file_path)
+        self.__parse_result = pycparser.parse_file(self.__preprocessed_file_path)
         # use_cpp=False, cpp_path='cpp', cpp_args='',
         #                parser=None
         # TODO: Test this: use_cpp=True - only for preprocessor
 
-        parse_result_str = str(parse_result)
-        print(parse_result_str)
+        parse_result_str = str(self.__parse_result)
+        #print(parse_result_str)
 
         # Save the AST to file
         with open(pycparser_ast_generated, "w") as f:
@@ -54,15 +123,59 @@ class FileStaticAnalysis():
         #print("##########################")
         #parse_result.show()
 
+        # Execute checker
+        for checker in self.__analysis_list:
+            if checker["type"] == StaticAnalysisType.DEFAULT:
+                checker["checker"]()
+            elif checker["type"] == StaticAnalysisType.OPTIONAL:
+                if checker["config"]:
+                    # Enabled, run
+                    print("This checker is enabled, execute: {}".format(checker["name"]))
+                    checker["checker"]()
+                    print("This checker has finished: {}".format(checker["name"]))
+                else:
+                    # Disabled
+                    print("This checker has been disabled: {}".format(checker["name"]))
+            else:
+                raise Exception("Wrong StaticAnalysisType")
+
+
+    def FuncCall(self):
         checker_obj = FuncCallVisitor()
-        checker_obj.visit(parse_result)
+        checker_obj.visit(self.__parse_result)
+        # Listing
+        func_calls_str = "".join(item + "\n" for item in func_calls)
 
+        print("######################")
+        print("Func calls: (Called functions)")
+        print(func_calls_str)
+
+
+    def FuncDef(self):
         checker_obj = FuncDefVisitor()
-        checker_obj.visit(parse_result)
+        checker_obj.visit(self.__parse_result)
 
+        # Listing
+        func_calls_str = "".join(item + "\n" for item in func_calls)
+        func_def_str = "".join(item + "\n" for item in func_declarations)
+
+        print("######################")
+        print("Func definitions: (Declared functions)")
+        print(func_def_str)
+
+
+    def Goto(self):
         # Goto
         checker_obj = GotoVisitor()
-        checker_obj.visit(parse_result)
+        checker_obj.visit(self.__parse_result)
+
+        goto_used_str = "".join(item + "\n" for item in goto_used)
+        print("######################")
+        print("Goto used:")
+        print(goto_used_str)
+
+
+    def Return(self):
 
         # Return
         # TODO: Cannot check easily, which function' return
@@ -78,7 +191,7 @@ class FileStaticAnalysis():
             return return_count
 
         # Explore AST - for return
-        for ast_item in parse_result:
+        for ast_item in self.__parse_result:
             # print(str(ast_item))
             if isinstance(ast_item, pycparser.c_ast.FuncDef):
                 # Explore the body
@@ -91,18 +204,8 @@ class FileStaticAnalysis():
                     return_count += find_return_in_recursive(body_item)
                 print("Function: '{}' has {} return".format(function_name, return_count))
 
-        # Listing
-        func_calls_str = "".join(item + "\n" for item in func_calls)
-        func_def_str = "".join(item + "\n" for item in func_declarations)
 
-        print("######################")
-        print("Func definitions: (Declared functions)")
-        print(func_def_str)
-
-        print("######################")
-        print("Func calls: (Called functions)")
-        print(func_calls_str)
-
+    def UnusedFunctions(self):
         # Not used functions:
         print("######################")
         print("Not used functions:")
@@ -110,11 +213,8 @@ class FileStaticAnalysis():
         func_not_used_str = "".join(item + "\n" for item in func_not_used)
         print(func_not_used_str)
 
-        goto_used_str = "".join(item + "\n" for item in goto_used)
-        print("######################")
-        print("Goto used:")
-        print(goto_used_str)
 
+    def CallList(self):
         # Try collect, an function where was called
         func_call_all_list = {}
         for an_func_call in func_calls_all:
