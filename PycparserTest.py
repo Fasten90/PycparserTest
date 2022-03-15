@@ -165,6 +165,8 @@ class FileStaticAnalysis():
 
         print("Func definitions: (Declared functions)")
         print(func_def_str)
+        # print to file
+
 
     def UnusedFunctions(self):
         # Not used functions:
@@ -251,10 +253,7 @@ class FuncCallVisitor(pycparser.c_ast.NodeVisitor):
     def visit_FuncCall(self, node):
         # This was called by pycparser NodeVisitor automatically
         # TODO: Dont care which function
-        if node.name.name == "my_test_func" or node.name.name == "printf":
-            print("Called '{}' at '{}'".format(node.name.name, node.name.coord))
-        else:
-            print("Called '{}' function from '{}'".format(node.name.name, node.name.coord))
+        print("Called '{}' function from '{}'".format(node.name.name, node.name.coord))
 
         global func_calls
         global func_calls_all
